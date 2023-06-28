@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+# this the type of object we are making
+kind: Deployment
+metadata:
+# This is the name of my deployment
+  name: cit270austinservice
+# The specification for our deployment
+spec:
+# How many pods?
+  replicas: 1
+# Used to identify the pod we want to talk to  
+  selector:
+    matchLabels:
+      app: cit270austinservice
+# Template to create containers
+  template:
+    metadata:
+      name: cit270austinservice
+      labels:
+        app: cit270austinservice
+# specification for pod        
+    spec:
+      containers:
+# name of container      
+      - name: cit270austinservice
+# Docker image registry      
+        image:    #paste here from artifact registry pls :)
+# First part of the command to start our API          
+        command: ["npm"]
+# Parameters to add to the command        
+        args: ["run","start"]
+# Resources for the pod
+        resources:
+          requests:
+# How many cores to start with        
+            cpu: 0.125
+# How much memory to start             
+            memory: 500Mi
+          limits:
+# How many cores to limit to          
+            cpu: 0.125
+# Max memory for the pod            
+            memory: 600Mi
+        imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stedi-austin-nodeport
+spec:
+  selector:
+    app: cit270austinservice # this needs to match the name of your deployment (line 6)
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: stedi-austin-certificate
+spec:
+  domains:
+    - austin.cit270.com # this needs to be your domain name from DNS
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stedi-austin-ingress
+  annotations:
+  # Use this command to find the address name: gcloud compute addresses list 
+    kubernetes.io/ingress.global-static-ip-name: cit270austin
+  # needs to match the name of the ManagedCertificate (line 75)
+    networking.gke.io/managed-certificates: stedi-austin-certificate
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+          # needs to match the name of the NodePort Service (line 63)
+            name: stedi-austin-nodeport
+            port:
+              number: 80
